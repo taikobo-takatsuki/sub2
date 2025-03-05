@@ -8,25 +8,40 @@
     <!-- kuroshiro関連のライブラリ -->
     <script src="https://unpkg.com/kuroshiro@1.2.0/dist/kuroshiro.min.js"></script>
     <script src="https://unpkg.com/kuroshiro-analyzer-kuromoji@1.1.0/dist/kuroshiro-analyzer-kuromoji.min.js"></script>
+    <!-- アイコンフォント -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@300;400;500;700&display=swap" rel="stylesheet">
 </head>
 <body>
-    <div class="container">
-        <h1>カタカナカラ</h1>
-        <p class="subtitle">テキストヲ ニュウリョクシテ カタカナニ ヘンカンシマス</p>
-        
-        <div class="input-area">
-            <textarea id="input-text" placeholder="テキストを入力してください..."></textarea>
-            <button id="translate-btn" disabled>ショリチュウ...</button>
-        </div>
-        
-        <div class="output-area">
-            <h2>カタカナ ケッカ</h2>
-            <div id="output-text" class="output-box"></div>
-            <button id="copy-btn">コピー</button>
-        </div>
+    <div class="page-container">
+        <header>
+            <h1>カタカナカラ</h1>
+            <p class="subtitle">テキストヲ ニュウリョクスルト ジドウデ カタカナニ ヘンカンシマス</p>
+        </header>
+
+        <main class="content-container">
+            <div class="input-container">
+                <h2><i class="fas fa-keyboard"></i> ニュウリョク</h2>
+                <textarea id="input-text" placeholder="テキストを入力してください..."></textarea>
+                <div class="status-indicator" id="status-indicator">
+                    <span class="loading-spinner"><i class="fas fa-circle-notch fa-spin"></i></span>
+                    <span class="status-text">ショリチュウ...</span>
+                </div>
+            </div>
+            
+            <div class="output-container">
+                <h2><i class="fas fa-language"></i> カタカナ ケッカ</h2>
+                <div id="output-text" class="output-box"></div>
+                <button id="copy-btn" class="action-button"><i class="fas fa-copy"></i> コピー</button>
+            </div>
+        </main>
         
         <footer>
             <p>Powered by Google Translation API & Kuroshiro</p>
+            <div class="credits">
+                <span><i class="fas fa-code"></i> with <i class="fas fa-heart"></i></span>
+            </div>
         </footer>
     </div>
     
