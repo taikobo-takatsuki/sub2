@@ -5,8 +5,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const statusIndicator = document.getElementById('status-indicator');
     const statusText = statusIndicator.querySelector('.status-text');
     
-    // Google Translation API Key
-    const API_KEY = 'AIzaSyBMBBy6FWq_AJCPSsvAYOmjlOEhR6G08Ro';
+    // APIキーを設定ファイルから取得（もし設定ファイルが読み込めない場合のフォールバック）
+    let API_KEY = '';
+    try {
+        API_KEY = CONFIG.GOOGLE_TRANSLATE_API_KEY;
+    } catch (error) {
+        console.error('設定ファイルが読み込めませんでした:', error);
+        updateStatus('API設定ヲ ヨミコメマセンデシタ', false);
+    }
     
     // 変換タイマーと入力バッファ
     let convertTimer = null;
@@ -75,6 +81,13 @@ document.addEventListener('DOMContentLoaded', () => {
         
         try {
             updateStatus('ヘンカンチュウ...');
+            
+            // APIキーがない場合
+            if (!API_KEY) {
+                updateStatus('APIキーガ セッテイサレテイマセン', false);
+                outputText.textContent = 'APIキーガ セッテイサレテイナイタメ ヘンカンデキマセン。';
+                return;
+            }
             
             // 言語を自動検出して日本語に翻訳
             const translatedText = await translateText(text);
