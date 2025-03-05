@@ -15,6 +15,37 @@
         GOOGLE_TRANSLATE_API_KEY: 'AIzaSyBMBBy6FWq_AJCPSsvAYOmjlOEhR6G08Ro'
     };
     </script>
+    
+    <!-- ライブラリを直接読み込む -->
+    <script src="https://cdn.jsdelivr.net/npm/kuroshiro@1.2.0/dist/kuroshiro.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/kuroshiro-analyzer-kuromoji@1.1.0/dist/kuroshiro-analyzer-kuromoji.min.js"></script>
+    
+    <!-- ライブラリ読み込み確認 -->
+    <script>
+    // ライブラリの読み込みをチェック
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log('ライブラリ状態チェック:');
+        console.log('- Kuroshiro:', typeof Kuroshiro);
+        console.log('- KuromojiAnalyzer:', typeof KuromojiAnalyzer);
+        
+        if (typeof Kuroshiro === 'undefined' || typeof KuromojiAnalyzer === 'undefined') {
+            console.warn('ライブラリが読み込まれていません。代替ソースを試行します。');
+            
+            // CDNから直接ライブラリを読み込む
+            if (typeof Kuroshiro === 'undefined') {
+                const kuroshiroScript = document.createElement('script');
+                kuroshiroScript.src = 'https://unpkg.com/kuroshiro@1.2.0/dist/kuroshiro.min.js';
+                document.head.appendChild(kuroshiroScript);
+            }
+            
+            if (typeof KuromojiAnalyzer === 'undefined') {
+                const analyzerScript = document.createElement('script');
+                analyzerScript.src = 'https://unpkg.com/kuroshiro-analyzer-kuromoji@1.1.0/dist/kuroshiro-analyzer-kuromoji.min.js';
+                document.head.appendChild(analyzerScript);
+            }
+        }
+    });
+    </script>
 </head>
 <body>
     <div class="container">
@@ -43,10 +74,6 @@
             </div>
         </main>
     </div>
-    
-    <!-- ライブラリを直接読み込む - 正確なCDNバージョンを指定 -->
-    <script src="https://unpkg.com/kuroshiro@1.2.0/dist/kuroshiro.min.js"></script>
-    <script src="https://unpkg.com/kuroshiro-analyzer-kuromoji@1.1.0/dist/kuroshiro-analyzer-kuromoji.min.js"></script>
     
     <!-- アプリケーションコード - defer属性を追加して遅延読み込み -->
     <script src="script.js" defer></script>
