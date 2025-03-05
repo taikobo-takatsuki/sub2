@@ -6,11 +6,7 @@
     <title>カタカナカラ</title>
     <link rel="stylesheet" href="style.css">
     
-    <!-- kuroshiro関連のライブラリ - 異なるCDNから直接読み込み -->
-    <script src="https://cdn.jsdelivr.net/npm/kuroshiro@1.2.0/dist/kuroshiro.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/kuroshiro-analyzer-kuromoji@1.1.0/dist/kuroshiro-analyzer-kuromoji.min.js"></script>
-    
-    <!-- APIキー設定 - テンプレートファイルから作成 -->
+    <!-- APIキー設定 - HTMLに直接埋め込み -->
     <script>
     // config.jsが読み込めない場合のフォールバック
     var CONFIG = {
@@ -19,7 +15,7 @@
     window.CONFIG = CONFIG;
     </script>
     
-    <!-- config.js があれば読み込む -->
+    <!-- config.js があれば読み込む (無視されても問題なし) -->
     <script>
     (function() {
         var configScript = document.createElement('script');
@@ -29,6 +25,63 @@
         };
         document.head.appendChild(configScript);
     })();
+    </script>
+    
+    <!-- kuroshiro関連のライブラリ - CDNから直接読み込み (JSDelivrからの読み込み) -->
+    <script>
+    // ライブラリ読み込み状態の監視
+    window.libraryStatus = {
+        kuroshiro: false,
+        analyzer: false
+    };
+    </script>
+    
+    <script src="https://cdn.jsdelivr.net/npm/kuroshiro@1.2.0/dist/kuroshiro.min.js" 
+            onload="window.libraryStatus.kuroshiro = true; console.log('Kuroshiro読み込み成功');"
+            onerror="console.error('Kuroshiro読み込み失敗');">
+    </script>
+    
+    <script src="https://cdn.jsdelivr.net/npm/kuroshiro-analyzer-kuromoji@1.1.0/dist/kuroshiro-analyzer-kuromoji.min.js"
+            onload="window.libraryStatus.analyzer = true; console.log('KuromojiAnalyzer読み込み成功');"
+            onerror="console.error('KuromojiAnalyzer読み込み失敗');">
+    </script>
+    
+    <!-- 別のソースからもKuroshiroを読み込み試行 -->
+    <script>
+    // 最初のCDNが失敗した場合に別のCDNを試す
+    setTimeout(function() {
+        if (!window.libraryStatus.kuroshiro) {
+            console.log('別のCDNからKuroshiroを読み込み試行中...');
+            var script1 = document.createElement('script');
+            script1.src = 'https://unpkg.com/kuroshiro@1.2.0/dist/kuroshiro.min.js';
+            script1.onload = function() { 
+                window.libraryStatus.kuroshiro = true; 
+                console.log('Kuroshiro(unpkg)読み込み成功');
+            };
+            document.head.appendChild(script1);
+        }
+        
+        if (!window.libraryStatus.analyzer) {
+            console.log('別のCDNからKuromojiAnalyzerを読み込み試行中...');
+            var script2 = document.createElement('script');
+            script2.src = 'https://unpkg.com/kuroshiro-analyzer-kuromoji@1.1.0/dist/kuroshiro-analyzer-kuromoji.min.js';
+            script2.onload = function() { 
+                window.libraryStatus.analyzer = true; 
+                console.log('KuromojiAnalyzer(unpkg)読み込み成功');
+            };
+            document.head.appendChild(script2);
+        }
+    }, 2000);
+    </script>
+    
+    <!-- グローバルKuroshiro確認用 -->
+    <script>
+    window.onload = function() {
+        console.log('ページ読み込み完了。ライブラリ状態:');
+        console.log('Kuroshiro存在:', typeof Kuroshiro === 'function');
+        console.log('KuromojiAnalyzer存在:', typeof KuromojiAnalyzer === 'function');
+        console.log('window.Kuroshiro存在:', typeof window.Kuroshiro === 'function');
+    };
     </script>
     
     <!-- アイコンフォント -->
@@ -71,6 +124,7 @@
         </footer>
     </div>
     
+    <!-- 後にscript.jsを読み込み -->
     <script src="script.js"></script>
 </body>
 </html> 
