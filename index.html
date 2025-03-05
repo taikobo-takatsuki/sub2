@@ -5,6 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>カタカナカラ</title>
     <link rel="stylesheet" href="style.css">
+    <!-- kuroshiro関連のライブラリ -->
+    <script src="https://unpkg.com/kuroshiro@1.2.0/dist/kuroshiro.min.js"></script>
+    <script src="https://unpkg.com/kuroshiro-analyzer-kuromoji@1.1.0/dist/kuroshiro-analyzer-kuromoji.min.js"></script>
 </head>
 <body>
     <div class="container">
@@ -13,7 +16,7 @@
         
         <div class="input-area">
             <textarea id="input-text" placeholder="テキストを入力してください..."></textarea>
-            <button id="translate-btn">ヘンカン</button>
+            <button id="translate-btn" disabled>ショリチュウ...</button>
         </div>
         
         <div class="output-area">
@@ -23,7 +26,7 @@
         </div>
         
         <footer>
-            <p>Powered by Google Translation API</p>
+            <p>Powered by Google Translation API & Kuroshiro</p>
         </footer>
     </div>
     
