@@ -3,78 +3,47 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>カタカナカラ</title>
-    <link rel="stylesheet" href="style.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <title>マルチリンガル・カタカナ変換</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=M+PLUS+1p:wght@300;400;500;700&display=swap" rel="stylesheet">
-    
-    <!-- API設定ファイル -->
-    <script>
-        // API設定のフォールバック
-        window.CONFIG = {
-            GOOGLE_TRANSLATE_API_KEY: 'AIzaSyBMBBy6FWq_AJCPSsvAYOmjlOEhR6G08Ro'
-        };
-    </script>
-    <script src="config.js" onerror="console.warn('設定ファイルが読み込めませんでした。デフォルト設定を使用します。')"></script>
-    
-    <!-- ローカルからKuroshiroとKuromojiAnalyzerを読み込み -->
-    <script>
-        // Kuroshiroライブラリのロード状態追跡
-        window.libraryStatus = {
-            kuroshiro: false,
-            analyzer: false
-        };
-        
-        function checkLibrariesReady() {
-            return window.libraryStatus.kuroshiro && window.libraryStatus.analyzer;
-        }
-    </script>
-    
-    <!-- ローカルのkuroshiro.jsからの読み込み -->
-    <script src="kuroshiro.js" 
-        onload="console.log('kuroshiro.js読み込み成功'); window.libraryStatus.kuroshiro = true;" 
-        onerror="console.error('kuroshiro.jsの読み込みに失敗しました')">
-    </script>
-    
-    <!-- ローカルのkuromoji-analyzer.jsからの読み込み -->
-    <script src="kuromoji-analyzer.js" 
-        onload="console.log('kuromoji-analyzer.js読み込み成功'); window.libraryStatus.analyzer = true;" 
-        onerror="console.error('kuromoji-analyzer.jsの読み込みに失敗しました')">
-    </script>
-    
-    <!-- アプリケーションコード -->
-    <script src="script.js" defer></script>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <div class="container">
         <header>
-            <h1>カタカナカラ</h1>
-            <p class="subtitle">漢字、ひらがな混じり文をカタカナ表記に変換</p>
+            <h1>マルチリンガル・カタカナ変換</h1>
         </header>
         
         <main>
-            <div id="status-indicator" class="status-indicator">
-                <i class="fas fa-cog fa-spin"></i> <span class="status-text">初期化中...</span>
+            <div class="status-indicator">
+                <span class="status-text">初期化中...</span>
             </div>
             
-            <div class="input-section">
-                <textarea id="input-text" placeholder="ここに日本語を入力してください..."></textarea>
-            </div>
-            
-            <div class="output-section">
-                <div class="output-header">
-                    <h3>変換結果</h3>
-                    <button id="copy-btn" class="copy-btn" title="クリップボードにコピー">
-                        <i class="fas fa-copy"></i>
-                    </button>
+            <div class="translation-container">
+                <div class="input-section">
+                    <textarea id="input-text" placeholder="任意の言語で入力してください..."></textarea>
                 </div>
-                <div id="output-text" class="output-text"></div>
+                
+                <div class="output-section">
+                    <div class="output-header">
+                        <button class="copy-btn" title="コピー">
+                            <i class="fas fa-copy"></i>
+                        </button>
+                    </div>
+                    <div class="output-text"></div>
+                </div>
             </div>
         </main>
-        
-        <footer>
-            <p>Powered by <a href="https://cloud.google.com/translate" target="_blank">Google Translation API</a> + <a href="https://github.com/hexenq/kuroshiro" target="_blank">Kuroshiro</a></p>
-        </footer>
     </div>
+
+    <!-- API設定 -->
+    <script src="config.js"></script>
+    
+    <!-- ライブラリ -->
+    <script src="https://cdn.jsdelivr.net/npm/kuroshiro@1.2.0/dist/kuroshiro.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/kuroshiro-analyzer-kuromoji@1.1.0/dist/kuroshiro-analyzer-kuromoji.min.js"></script>
+    
+    <!-- アプリケーションコード -->
+    <script src="script.js"></script>
 </body>
 </html> 
