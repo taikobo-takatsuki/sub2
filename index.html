@@ -5,126 +5,76 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>カタカナカラ</title>
     <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=M+PLUS+1p:wght@300;400;500;700&display=swap" rel="stylesheet">
     
-    <!-- APIキー設定 - HTMLに直接埋め込み -->
+    <!-- API設定ファイル -->
     <script>
-    // config.jsが読み込めない場合のフォールバック
-    var CONFIG = {
-        GOOGLE_TRANSLATE_API_KEY: 'AIzaSyBMBBy6FWq_AJCPSsvAYOmjlOEhR6G08Ro'
-    };
-    window.CONFIG = CONFIG;
-    </script>
-    
-    <!-- config.js があれば読み込む (無視されても問題なし) -->
-    <script>
-    (function() {
-        var configScript = document.createElement('script');
-        configScript.src = 'config.js';
-        configScript.onerror = function() {
-            console.log('config.jsの読み込みに失敗しました。デフォルト設定を使用します。');
+        // API設定のフォールバック
+        window.CONFIG = {
+            GOOGLE_TRANSLATE_API_KEY: 'AIzaSyBMBBy6FWq_AJCPSsvAYOmjlOEhR6G08Ro'
         };
-        document.head.appendChild(configScript);
-    })();
     </script>
+    <script src="config.js" onerror="console.warn('設定ファイルが読み込めませんでした。デフォルト設定を使用します。')"></script>
     
-    <!-- kuroshiro関連のライブラリ - CDNから直接読み込み (JSDelivrからの読み込み) -->
+    <!-- ローカルからKuroshiroとKuromojiAnalyzerを読み込み -->
     <script>
-    // ライブラリ読み込み状態の監視
-    window.libraryStatus = {
-        kuroshiro: false,
-        analyzer: false
-    };
-    </script>
-    
-    <script src="https://cdn.jsdelivr.net/npm/kuroshiro@1.2.0/dist/kuroshiro.min.js" 
-            onload="window.libraryStatus.kuroshiro = true; console.log('Kuroshiro読み込み成功');"
-            onerror="console.error('Kuroshiro読み込み失敗');">
-    </script>
-    
-    <script src="https://cdn.jsdelivr.net/npm/kuroshiro-analyzer-kuromoji@1.1.0/dist/kuroshiro-analyzer-kuromoji.min.js"
-            onload="window.libraryStatus.analyzer = true; console.log('KuromojiAnalyzer読み込み成功');"
-            onerror="console.error('KuromojiAnalyzer読み込み失敗');">
-    </script>
-    
-    <!-- 別のソースからもKuroshiroを読み込み試行 -->
-    <script>
-    // 最初のCDNが失敗した場合に別のCDNを試す
-    setTimeout(function() {
-        if (!window.libraryStatus.kuroshiro) {
-            console.log('別のCDNからKuroshiroを読み込み試行中...');
-            var script1 = document.createElement('script');
-            script1.src = 'https://unpkg.com/kuroshiro@1.2.0/dist/kuroshiro.min.js';
-            script1.onload = function() { 
-                window.libraryStatus.kuroshiro = true; 
-                console.log('Kuroshiro(unpkg)読み込み成功');
-            };
-            document.head.appendChild(script1);
-        }
+        // Kuroshiroライブラリのロード状態追跡
+        window.libraryStatus = {
+            kuroshiro: false,
+            analyzer: false
+        };
         
-        if (!window.libraryStatus.analyzer) {
-            console.log('別のCDNからKuromojiAnalyzerを読み込み試行中...');
-            var script2 = document.createElement('script');
-            script2.src = 'https://unpkg.com/kuroshiro-analyzer-kuromoji@1.1.0/dist/kuroshiro-analyzer-kuromoji.min.js';
-            script2.onload = function() { 
-                window.libraryStatus.analyzer = true; 
-                console.log('KuromojiAnalyzer(unpkg)読み込み成功');
-            };
-            document.head.appendChild(script2);
+        function checkLibrariesReady() {
+            return window.libraryStatus.kuroshiro && window.libraryStatus.analyzer;
         }
-    }, 2000);
     </script>
     
-    <!-- グローバルKuroshiro確認用 -->
-    <script>
-    window.onload = function() {
-        console.log('ページ読み込み完了。ライブラリ状態:');
-        console.log('Kuroshiro存在:', typeof Kuroshiro === 'function');
-        console.log('KuromojiAnalyzer存在:', typeof KuromojiAnalyzer === 'function');
-        console.log('window.Kuroshiro存在:', typeof window.Kuroshiro === 'function');
-    };
+    <!-- ローカルのkuroshiro.jsからの読み込み -->
+    <script src="kuroshiro.js" 
+        onload="console.log('kuroshiro.js読み込み成功'); window.libraryStatus.kuroshiro = true;" 
+        onerror="console.error('kuroshiro.jsの読み込みに失敗しました')">
     </script>
     
-    <!-- アイコンフォント -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <!-- ローカルのkuromoji-analyzer.jsからの読み込み -->
+    <script src="kuromoji-analyzer.js" 
+        onload="console.log('kuromoji-analyzer.js読み込み成功'); window.libraryStatus.analyzer = true;" 
+        onerror="console.error('kuromoji-analyzer.jsの読み込みに失敗しました')">
+    </script>
     
-    <!-- Google Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <!-- アプリケーションコード -->
+    <script src="script.js" defer></script>
 </head>
 <body>
-    <div class="page-container">
+    <div class="container">
         <header>
             <h1>カタカナカラ</h1>
-            <p class="subtitle">テキストヲ ニュウリョクスルト ジドウデ カタカナニ ヘンカンシマス</p>
+            <p class="subtitle">漢字、ひらがな混じり文をカタカナ表記に変換</p>
         </header>
-
-        <main class="content-container">
-            <div class="input-container">
-                <h2><i class="fas fa-keyboard"></i> ニュウリョク</h2>
-                <label for="input-text" class="visually-hidden">入力テキスト</label>
-                <textarea id="input-text" placeholder="テキストを入力してください..."></textarea>
-                <div class="status-indicator" id="status-indicator">
-                    <span class="loading-spinner"><i class="fas fa-circle-notch fa-spin"></i></span>
-                    <span class="status-text">ショリチュウ...</span>
-                </div>
+        
+        <main>
+            <div id="status-indicator" class="status-indicator">
+                <i class="fas fa-cog fa-spin"></i> <span class="status-text">初期化中...</span>
             </div>
             
-            <div class="output-container">
-                <h2><i class="fas fa-language"></i> カタカナ ケッカ</h2>
-                <label for="output-text" class="visually-hidden">変換結果</label>
-                <div id="output-text" class="output-box" role="textbox" aria-readonly="true"></div>
-                <button id="copy-btn" class="action-button"><i class="fas fa-copy"></i> コピー</button>
+            <div class="input-section">
+                <textarea id="input-text" placeholder="ここに日本語を入力してください..."></textarea>
+            </div>
+            
+            <div class="output-section">
+                <div class="output-header">
+                    <h3>変換結果</h3>
+                    <button id="copy-btn" class="copy-btn" title="クリップボードにコピー">
+                        <i class="fas fa-copy"></i>
+                    </button>
+                </div>
+                <div id="output-text" class="output-text"></div>
             </div>
         </main>
         
         <footer>
-            <p>Powered by Google Translation API & Kuroshiro</p>
-            <div class="credits">
-                <span><i class="fas fa-code"></i> with <i class="fas fa-heart"></i></span>
-            </div>
+            <p>Powered by <a href="https://cloud.google.com/translate" target="_blank">Google Translation API</a> + <a href="https://github.com/hexenq/kuroshiro" target="_blank">Kuroshiro</a></p>
         </footer>
     </div>
-    
-    <!-- 後にscript.jsを読み込み -->
-    <script src="script.js"></script>
 </body>
 </html> 
