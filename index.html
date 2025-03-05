@@ -5,13 +5,35 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>カタカナカラ</title>
     <link rel="stylesheet" href="style.css">
-    <!-- APIキー設定 -->
-    <script src="config.js"></script>
-    <!-- kuroshiro関連のライブラリ -->
-    <script src="https://unpkg.com/kuroshiro@1.2.0/dist/kuroshiro.min.js"></script>
-    <script src="https://unpkg.com/kuroshiro-analyzer-kuromoji@1.1.0/dist/kuroshiro-analyzer-kuromoji.min.js"></script>
+    
+    <!-- kuroshiro関連のライブラリ - 異なるCDNから直接読み込み -->
+    <script src="https://cdn.jsdelivr.net/npm/kuroshiro@1.2.0/dist/kuroshiro.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/kuroshiro-analyzer-kuromoji@1.1.0/dist/kuroshiro-analyzer-kuromoji.min.js"></script>
+    
+    <!-- APIキー設定 - テンプレートファイルから作成 -->
+    <script>
+    // config.jsが読み込めない場合のフォールバック
+    var CONFIG = {
+        GOOGLE_TRANSLATE_API_KEY: 'AIzaSyBMBBy6FWq_AJCPSsvAYOmjlOEhR6G08Ro'
+    };
+    window.CONFIG = CONFIG;
+    </script>
+    
+    <!-- config.js があれば読み込む -->
+    <script>
+    (function() {
+        var configScript = document.createElement('script');
+        configScript.src = 'config.js';
+        configScript.onerror = function() {
+            console.log('config.jsの読み込みに失敗しました。デフォルト設定を使用します。');
+        };
+        document.head.appendChild(configScript);
+    })();
+    </script>
+    
     <!-- アイコンフォント -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@300;400;500;700&display=swap" rel="stylesheet">
 </head>
@@ -25,6 +47,7 @@
         <main class="content-container">
             <div class="input-container">
                 <h2><i class="fas fa-keyboard"></i> ニュウリョク</h2>
+                <label for="input-text" class="visually-hidden">入力テキスト</label>
                 <textarea id="input-text" placeholder="テキストを入力してください..."></textarea>
                 <div class="status-indicator" id="status-indicator">
                     <span class="loading-spinner"><i class="fas fa-circle-notch fa-spin"></i></span>
@@ -34,7 +57,8 @@
             
             <div class="output-container">
                 <h2><i class="fas fa-language"></i> カタカナ ケッカ</h2>
-                <div id="output-text" class="output-box"></div>
+                <label for="output-text" class="visually-hidden">変換結果</label>
+                <div id="output-text" class="output-box" role="textbox" aria-readonly="true"></div>
                 <button id="copy-btn" class="action-button"><i class="fas fa-copy"></i> コピー</button>
             </div>
         </main>
