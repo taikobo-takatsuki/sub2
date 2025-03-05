@@ -10,37 +10,48 @@
     
     <!-- API設定 -->
     <script>
-    // APIキー設定 - GitHub Pagesで直接使用するためのAPIキー
+    // APIキー設定
     window.CONFIG = {
         GOOGLE_TRANSLATE_API_KEY: 'AIzaSyBMBBy6FWq_AJCPSsvAYOmjlOEhR6G08Ro'
     };
     </script>
     
-    <!-- ライブラリを直接読み込む -->
-    <script src="https://cdn.jsdelivr.net/npm/kuroshiro@1.2.0/dist/kuroshiro.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/kuroshiro-analyzer-kuromoji@1.1.0/dist/kuroshiro-analyzer-kuromoji.min.js"></script>
+    <!-- ローカルライブラリを優先して読み込む -->
+    <script src="kuroshiro.js"></script>
+    <script src="kuromoji-analyzer.js"></script>
     
-    <!-- ライブラリ読み込み確認 -->
+    <!-- CDNフォールバック -->
     <script>
-    // ライブラリの読み込みをチェック
     document.addEventListener('DOMContentLoaded', function() {
         console.log('ライブラリ状態チェック:');
         console.log('- Kuroshiro:', typeof Kuroshiro);
         console.log('- KuromojiAnalyzer:', typeof KuromojiAnalyzer);
         
+        // ローカルファイルからの読み込みに失敗した場合、CDNから読み込む
         if (typeof Kuroshiro === 'undefined' || typeof KuromojiAnalyzer === 'undefined') {
-            console.warn('ライブラリが読み込まれていません。代替ソースを試行します。');
+            console.warn('ローカルライブラリが読み込まれませんでした。CDNから読み込みます。');
             
-            // CDNから直接ライブラリを読み込む
             if (typeof Kuroshiro === 'undefined') {
                 const kuroshiroScript = document.createElement('script');
                 kuroshiroScript.src = 'https://unpkg.com/kuroshiro@1.2.0/dist/kuroshiro.min.js';
+                kuroshiroScript.onload = function() {
+                    console.log('Kuroshiro: CDNからの読み込み成功');
+                };
+                kuroshiroScript.onerror = function() {
+                    console.error('Kuroshiro: CDNからの読み込み失敗');
+                };
                 document.head.appendChild(kuroshiroScript);
             }
             
             if (typeof KuromojiAnalyzer === 'undefined') {
                 const analyzerScript = document.createElement('script');
                 analyzerScript.src = 'https://unpkg.com/kuroshiro-analyzer-kuromoji@1.1.0/dist/kuroshiro-analyzer-kuromoji.min.js';
+                analyzerScript.onload = function() {
+                    console.log('KuromojiAnalyzer: CDNからの読み込み成功');
+                };
+                analyzerScript.onerror = function() {
+                    console.error('KuromojiAnalyzer: CDNからの読み込み失敗');
+                };
                 document.head.appendChild(analyzerScript);
             }
         }
@@ -51,31 +62,48 @@
     <div class="container">
         <header>
             <h1>カタカナカラ</h1>
+            <p class="subtitle">テキストをカタカナに変換するシンプルな翻訳ツール</p>
         </header>
         
         <main>
             <div class="status-indicator">
                 <span class="status-text">初期化中...</span>
+                <div class="loader"></div>
             </div>
             
             <div class="translation-container">
                 <div class="input-section">
                     <textarea id="input-text" placeholder="任意の言語で入力してください..."></textarea>
+                    <div class="input-controls">
+                        <button id="convert-btn" title="変換">
+                            <i class="fas fa-exchange-alt"></i> 変換
+                        </button>
+                        <button id="clear-btn" title="クリア">
+                            <i class="fas fa-trash-alt"></i> クリア
+                        </button>
+                    </div>
                 </div>
                 
                 <div class="output-section">
                     <div class="output-header">
+                        <div class="output-status">
+                            <span class="result-title">変換結果</span>
+                        </div>
                         <button class="copy-btn" title="コピー">
-                            <i class="fas fa-copy"></i>
+                            <i class="fas fa-copy"></i> コピー
                         </button>
                     </div>
                     <div class="output-text"></div>
                 </div>
             </div>
         </main>
+        
+        <footer>
+            <p>© 2023 カタカナカラ - Powered by Kuroshiro & Google Translate</p>
+        </footer>
     </div>
     
-    <!-- アプリケーションコード - defer属性を追加して遅延読み込み -->
+    <!-- アプリケーションコード -->
     <script src="script.js" defer></script>
 </body>
 </html> 
