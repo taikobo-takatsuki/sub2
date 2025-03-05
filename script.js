@@ -1,4 +1,4 @@
-﻿cconst DEBUG = true;
+﻿const DEBUG = true;
 
 // DOM要素
 const inputText = document.getElementById('input-text');
@@ -14,11 +14,6 @@ let apiKey;
 let isProcessing = false;
 let useTranslationAPI = true; // 翻訳APIを使用するかどうか
 let lastInput = ''; // 最後の入力を記録
-let kuroshiro; // Kuroshiroインスタンスをグローバルに保持
-
-// Kuroshiroとアナライザーのインポート（モジュール環境を前提）
-import Kuroshiro from "kuroshiro";
-import KuromojiAnalyzer from "kuroshiro-analyzer-kuromoji";
 
 // DOMロード時の初期化
 document.addEventListener('DOMContentLoaded', async () => {
@@ -27,29 +22,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     // APIキーを読み込む
     loadApiKey();
     
-    // Kuroshiroを初期化
-    await initializeKuroshiro();
-    
     // ステータスを更新
     updateStatus('準備完了！テキストを入力してください。', false);
     
     // イベントリスナーの設定
     setupEventListeners();
 });
-
-// Kuroshiroの初期化関数
-async function initializeKuroshiro() {
-    try {
-        kuroshiro = new Kuroshiro();
-        const analyzer = new KuromojiAnalyzer();
-        await kuroshiro.init(analyzer);
-        console.log('Kuroshiroの初期化が成功しました。');
-    } catch (error) {
-        console.error('Kuroshiro初期化エラー:', error);
-        updateStatus('日本語処理エンジンの初期化に失敗しました。', false);
-        kuroshiro = null; // 初期化失敗時にnullを設定
-    }
-}
 
 // APIキーを読み込む
 function loadApiKey() {
@@ -111,7 +89,7 @@ async function processInput(text) {
             const translatedText = await translateText(text, 'ja');
             if (translatedText) {
                 updateStatus('カタカナに変換中...', true);
-                const katakanaText = await convertToKatakana(translatedText);
+                const katakanaText = await convertToKatakanaWithAI(translatedText);
                 outputText.textContent = katakanaText;
                 updateStatus('変換完了', false);
             } else {
@@ -119,7 +97,7 @@ async function processInput(text) {
             }
         } else {
             updateStatus('カタカナに変換中...', true);
-            const katakanaText = await convertToKatakana(text);
+            const katakanaText = await convertToKatakanaWithAI(text);
             outputText.textContent = katakanaText;
             updateStatus('変換完了', false);
         }
@@ -163,19 +141,72 @@ async function translateText(text, targetLang) {
     }
 }
 
-// Kuroshiroを使ってカタカナに変換
-async function convertToKatakana(text) {
-    if (!kuroshiro) {
-        console.error('Kuroshiroが初期化されていません。');
-        throw new Error('Kuroshiroが利用できません');
-    }
-
+// AIを使用してカタカナに変換する関数
+async function convertToKatakanaWithAI(text) {
     try {
-        const result = await kuroshiro.convert(text, { to: 'katakana' });
-        return result;
+        if (!apiKey) {
+            throw new Error('APIキーが設定されていません');
+        }
+
+        // 日本語自然言語処理APIのエンドポイント
+        const url = `https://language.googleapis.com/v1/documents:analyzeSyntax?key=${apiKey}`;
+        
+        // リクエストの作成
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                document: {
+                    type: 'PLAIN_TEXT',
+                    content: text,
+                    language: 'ja'
+                }
+            })
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json();
+            console.error('API応答エラー:', errorData);
+            throw new Error('構文解析に失敗しました: ' + (errorData.error?.message || '不明なエラー'));
+        }
+
+        const data = await response.json();
+        
+        if (DEBUG) {
+            console.log('API応答:', data);
+        }
+
+        // トークンからカタカナ読みを抽出
+        let katakanaText = '';
+        if (data.tokens && data.tokens.length > 0) {
+            for (const token of data.tokens) {
+                // 読みがある場合はそれを使用し、カタカナに変換
+                if (token.text && token.text.content) {
+                    if (token.partOfSpeech && 
+                        (token.partOfSpeech.tag === 'NOUN' || 
+                         token.partOfSpeech.tag === 'VERB' || 
+                         token.partOfSpeech.tag === 'ADJ')) {
+                        if (token.lemma) {
+                            katakanaText += hiraganaToKatakana(token.lemma);
+                        } else {
+                            katakanaText += token.text.content;
+                        }
+                    } else {
+                        katakanaText += token.text.content;
+                    }
+                }
+            }
+        } else {
+            // APIがトークンを返さない場合は元のテキストを返す
+            return hiraganaToKatakana(text);
+        }
+
+        return katakanaText;
     } catch (error) {
-        console.error('Kuroshiro変換エラー:', error);
-        // フォールバックとして単純なひらがな→カタカナ変換
+        console.error('AIによるカタカナ変換エラー:', error);
+        // エラー時はフォールバックとして単純なひらがな→カタカナ変換を使用
         return hiraganaToKatakana(text);
     }
 }
