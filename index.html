@@ -15,54 +15,13 @@
         GOOGLE_TRANSLATE_API_KEY: 'AIzaSyBMBBy6FWq_AJCPSsvAYOmjlOEhR6G08Ro'
     };
     </script>
-    
-    <!-- ローカルライブラリを優先して読み込む -->
-    <script src="kuroshiro.js"></script>
-    <script src="kuromoji-analyzer.js"></script>
-    
-    <!-- CDNフォールバック -->
-    <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        console.log('ライブラリ状態チェック:');
-        console.log('- Kuroshiro:', typeof Kuroshiro);
-        console.log('- KuromojiAnalyzer:', typeof KuromojiAnalyzer);
-        
-        // ローカルファイルからの読み込みに失敗した場合、CDNから読み込む
-        if (typeof Kuroshiro === 'undefined' || typeof KuromojiAnalyzer === 'undefined') {
-            console.warn('ローカルライブラリが読み込まれませんでした。CDNから読み込みます。');
-            
-            if (typeof Kuroshiro === 'undefined') {
-                const kuroshiroScript = document.createElement('script');
-                kuroshiroScript.src = 'https://unpkg.com/kuroshiro@1.2.0/dist/kuroshiro.min.js';
-                kuroshiroScript.onload = function() {
-                    console.log('Kuroshiro: CDNからの読み込み成功');
-                };
-                kuroshiroScript.onerror = function() {
-                    console.error('Kuroshiro: CDNからの読み込み失敗');
-                };
-                document.head.appendChild(kuroshiroScript);
-            }
-            
-            if (typeof KuromojiAnalyzer === 'undefined') {
-                const analyzerScript = document.createElement('script');
-                analyzerScript.src = 'https://unpkg.com/kuroshiro-analyzer-kuromoji@1.1.0/dist/kuroshiro-analyzer-kuromoji.min.js';
-                analyzerScript.onload = function() {
-                    console.log('KuromojiAnalyzer: CDNからの読み込み成功');
-                };
-                analyzerScript.onerror = function() {
-                    console.error('KuromojiAnalyzer: CDNからの読み込み失敗');
-                };
-                document.head.appendChild(analyzerScript);
-            }
-        }
-    });
-    </script>
 </head>
 <body>
     <div class="container">
         <header>
             <h1>カタカナカラ</h1>
             <p class="subtitle">テキストをカタカナに変換するシンプルな翻訳ツール</p>
+            <p class="tech-badge">AI搭載</p>
         </header>
         
         <main>
@@ -99,7 +58,7 @@
         </main>
         
         <footer>
-            <p>© 2023 カタカナカラ - Powered by Kuroshiro & Google Translate</p>
+            <p>© 2023 カタカナカラ - Powered by Google Natural Language API</p>
         </footer>
     </div>
     
