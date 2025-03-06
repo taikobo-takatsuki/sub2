@@ -85,18 +85,30 @@ async function processInput(text) {
 
     try {
         let resultText = '';
+        let translatedJapanese = '';
         
-        // 翻訳APIを使用
-        if (useTranslationAPI) {
+        // 翻訳APIが利用可能な場合は、まず翻訳を行う
+        if (useTranslationAPI && apiKey) {
             try {
                 updateStatus('翻訳中...', true);
                 // 翻訳実行
-                const translatedText = await translateText(text, 'ja');
-                if (translatedText) {
-                    console.log('翻訳結果:', translatedText);
-                    updateStatus('カタカナに変換中...', true);
-                    // 翻訳されたテキストをカタカナに変換
-                    resultText = await convertToKatakanaWithAI(translatedText);
+                translatedJapanese = await translateText(text, 'ja');
+                if (translatedJapanese) {
+                    console.log('翻訳結果:', translatedJapanese);
+                    
+                    // 翻訳された日本語をそのまま出力に表示（デバッグ用）
+                    updateStatus('翻訳が完了しました。カタカナに変換中...', true);
+                    
+                    // カタカナに変換
+                    const isJapanese = isJapaneseText(text);
+                    
+                    // 入力が既に日本語の場合は直接変換、そうでなければ翻訳結果を変換
+                    if (isJapanese) {
+                        resultText = await convertToKatakanaWithAI(text);
+                    } else {
+                        resultText = await convertToKatakanaWithAI(translatedJapanese);
+                    }
+                    
                     // 最終チェック
                     resultText = finalCheck(resultText);
                     outputText.textContent = resultText;
@@ -162,7 +174,16 @@ async function translateText(text, targetLang) {
         if (IS_DEBUG) {
             console.log('翻訳API応答:', data);
         }
-        return data.data.translations[0].translatedText || null;
+        
+        // 翻訳結果を取得
+        const translatedText = data.data.translations[0].translatedText || null;
+        console.log('翻訳結果（生）:', translatedText);
+        
+        // HTMLエンティティをデコード（例: &quot; → "）
+        const decodedText = decodeHTMLEntities(translatedText);
+        console.log('翻訳結果（デコード後）:', decodedText);
+        
+        return decodedText;
     } catch (error) {
         console.error('翻訳エラー:', error);
         updateStatus('翻訳中にエラーが発生しました。直接変換を試みます。', false);
@@ -170,11 +191,24 @@ async function translateText(text, targetLang) {
     }
 }
 
+// HTMLエンティティをデコードする関数
+function decodeHTMLEntities(text) {
+    if (!text) return '';
+    
+    const textarea = document.createElement('textarea');
+    textarea.innerHTML = text;
+    return textarea.value;
+}
+
 // AIを使用してカタカナに変換する関数
 async function convertToKatakanaWithAI(text) {
     try {
         // まずデバッグログを出力
         console.log('変換前テキスト:', text);
+        
+        if (!text) {
+            return '';
+        }
         
         if (!apiKey) {
             console.warn('APIキーがないため、直接カタカナ変換を使用します');
@@ -207,16 +241,26 @@ async function convertToKatakanaWithAI(text) {
             if (!response.ok) {
                 const errorData = await response.json();
                 console.warn('Natural Language API応答エラー:', errorData);
-                throw new Error('構文解析に失敗しました: ' + (errorData.error || '不明なエラー'));
+                throw new Error('構文解析に失敗しました: ' + (errorData.error?.message || '不明なエラー'));
             }
 
             const data = await response.json();
-            console.log('Natural Language API応答:', data);
+            
+            if (IS_DEBUG) {
+                console.log('Natural Language API応答:', data);
+            }
 
             // トークンからカタカナ読みを抽出
             let katakanaText = '';
             
             if (data.tokens && data.tokens.length > 0) {
+                // すべてのトークンの情報をログ出力（デバッグ用）
+                data.tokens.forEach((token, index) => {
+                    console.log(`トークン[${index}]:`, token.text?.content, 
+                                '/ 品詞:', token.partOfSpeech?.tag, 
+                                '/ lemma:', token.lemma);
+                });
+                
                 for (const token of data.tokens) {
                     if (token.text && token.text.content) {
                         // いずれかの方法でカタカナに変換
@@ -224,14 +268,26 @@ async function convertToKatakanaWithAI(text) {
                         
                         // トークンが漢字を含んでいるか
                         const hasKanji = /[\u4e00-\u9faf]/.test(token.text.content);
+                        const isAllHiragana = /^[\u3041-\u3096]+$/.test(token.text.content);
                         
-                        // lemmaを使用（最も信頼性が高い）
-                        if (token.lemma) {
-                            tokenKatakana = hiraganaToKatakana(token.lemma);
-                        } 
-                        // lemmaがなければ元のテキストを変換
-                        else {
+                        // ひらがなの場合は直接カタカナに変換
+                        if (isAllHiragana) {
                             tokenKatakana = hiraganaToKatakana(token.text.content);
+                        }
+                        // 漢字を含む場合
+                        else if (hasKanji && token.lemma) {
+                            // lemmaがあれば使用
+                            tokenKatakana = hiraganaToKatakana(token.lemma);
+                        }
+                        // その他のケース
+                        else {
+                            // 英数字と記号はそのまま、それ以外はカタカナに変換を試みる
+                            if (/^[a-zA-Z0-9\s.,!?'"()[\]{}:;<>=+\-*/\\|@#$%^&_]+$/.test(token.text.content)) {
+                                tokenKatakana = token.text.content;
+                            } else {
+                                // ひらがなをカタカナに変換
+                                tokenKatakana = hiraganaToKatakana(token.text.content);
+                            }
                         }
                         
                         // カタカナ化されたトークンを追加
