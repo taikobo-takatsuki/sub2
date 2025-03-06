@@ -1,4 +1,4 @@
-﻿const DEBUG = true;
+﻿const IS_DEBUG = true;
 
 // DOM要素
 const inputText = document.getElementById('input-text');
@@ -84,16 +84,24 @@ async function processInput(text) {
         const hasJapanese = /[\u3000-\u303f\u3040-\u309f\u30a0-\u30ff\uff00-\uff9f\u4e00-\u9faf]/g.test(text);
         const hasNonJapanese = /[a-zA-Z]/g.test(text);
 
-        if (!hasJapanese && hasNonJapanese && useTranslationAPI) {
-            updateStatus('翻訳中...', true);
-            const translatedText = await translateText(text, 'ja');
-            if (translatedText) {
-                updateStatus('カタカナに変換中...', true);
-                const katakanaText = await convertToKatakanaWithAI(translatedText);
+        if (!hasJapanese && hasNonJapanese && useTranslationAPI && apiKey) {
+            try {
+                updateStatus('翻訳中...', true);
+                const translatedText = await translateText(text, 'ja');
+                if (translatedText) {
+                    updateStatus('カタカナに変換中...', true);
+                    const katakanaText = await convertToKatakanaWithAI(translatedText);
+                    outputText.textContent = katakanaText;
+                    updateStatus('変換完了', false);
+                } else {
+                    throw new Error('翻訳に失敗しました。');
+                }
+            } catch (translationError) {
+                console.warn('翻訳エラー、直接カタカナ変換を試みます:', translationError);
+                updateStatus('翻訳APIエラー。直接変換します...', true);
+                const katakanaText = await convertToKatakanaWithAI(text);
                 outputText.textContent = katakanaText;
-                updateStatus('変換完了', false);
-            } else {
-                throw new Error('翻訳に失敗しました。');
+                updateStatus('変換完了（翻訳なし）', false);
             }
         } else {
             updateStatus('カタカナに変換中...', true);
@@ -145,7 +153,8 @@ async function translateText(text, targetLang) {
 async function convertToKatakanaWithAI(text) {
     try {
         if (!apiKey) {
-            throw new Error('APIキーが設定されていません');
+            console.warn('APIキーがないため、直接ひらがな→カタカナ変換を使用します');
+            return hiraganaToKatakana(text);
         }
 
         // 日本語自然言語処理APIのエンドポイント
@@ -174,7 +183,7 @@ async function convertToKatakanaWithAI(text) {
 
         const data = await response.json();
         
-        if (DEBUG) {
+        if (IS_DEBUG) {
             console.log('API応答:', data);
         }
 
