@@ -180,6 +180,9 @@ async function convertToKatakanaWithAI(text) {
             return forceKatakana(text);
         }
 
+        // まず単純なひらがな→カタカナ変換
+        let processedText = hiraganaToKatakana(text);
+        
         // 日本語自然言語処理APIのエンドポイント
         const url = `https://language.googleapis.com/v1/documents:analyzeSyntax?key=${apiKey}`;
         
@@ -220,20 +223,22 @@ async function convertToKatakanaWithAI(text) {
                     const hasJapaneseChars = isJapaneseText(token.text.content);
                     
                     if (hasJapaneseChars) {
-                        // 品詞によって処理を変える
-                        if (token.partOfSpeech && 
-                            (token.partOfSpeech.tag === 'NOUN' || 
-                             token.partOfSpeech.tag === 'VERB' || 
-                             token.partOfSpeech.tag === 'ADJ')) {
-                            // 主要な品詞はlemmaを使用（利用可能な場合）
-                            if (token.lemma) {
+                        if (token.lemma && token.partOfSpeech) {
+                            // 漢字を含む場合は読みを優先的に使用
+                            const containsKanji = /[\u4e00-\u9faf]/g.test(token.text.content);
+                            
+                            if (containsKanji && token.partOfSpeech.tag === 'NOUN' && token.lemma) {
+                                // 名詞の場合はlemmaを使用
+                                katakanaText += hiraganaToKatakana(token.lemma);
+                            } else if (token.partOfSpeech.tag === 'VERB' || token.partOfSpeech.tag === 'ADJ') {
+                                // 動詞や形容詞もlemmaを使用
                                 katakanaText += hiraganaToKatakana(token.lemma);
                             } else {
-                                // lemmaがなければforceKatakanaを使用
+                                // それ以外は強制カタカナ変換
                                 katakanaText += forceKatakana(token.text.content);
                             }
                         } else {
-                            // その他の品詞も強制的にカタカナに変換
+                            // lemmaがない場合は強制カタカナ変換
                             katakanaText += forceKatakana(token.text.content);
                         }
                     } else {
@@ -243,13 +248,13 @@ async function convertToKatakanaWithAI(text) {
                 }
             }
         } else {
-            // APIがトークンを返さない場合は元のテキストを返す
+            // APIがトークンを返さない場合は強制カタカナ変換
             return forceKatakana(text);
         }
 
         // 最終的な結果がまだ漢字やひらがなを含んでいたら強制的にカタカナ化
-        if (isJapaneseText(katakanaText) && 
-            /[^\u30A0-\u30FF\u0020-\u007E\u3000-\u303F\uFF00-\uFFEF]/g.test(katakanaText)) {
+        const nonKatakanaPattern = /[^\u30A0-\u30FF\u0020-\u007E\u3000-\u303F\uFF00-\uFFEF]/g;
+        if (nonKatakanaPattern.test(katakanaText)) {
             katakanaText = forceKatakana(katakanaText);
         }
 
@@ -272,15 +277,53 @@ function forceKatakana(text) {
     // まず既存のひらがな→カタカナ変換を実行
     text = hiraganaToKatakana(text);
     
-    // 漢字を含む日本語文字がまだ残っているかチェック
-    const hasNonKatakana = /[^\u30A0-\u30FF\u0020-\u007E\u3000-\u303F\uFF00-\uFFEF]/g.test(text);
+    // カタカナ、英数字、記号以外の文字を検出するための正規表現
+    const nonKatakanaPattern = /[^\u30A0-\u30FF\u0020-\u007E\u3000-\u303F\uFF00-\uFFEF]/g;
     
-    if (hasNonKatakana) {
-        // 非カタカナ文字が含まれる場合、すべての文字をカタカナに置き換える
-        // 漢字などの文字はスペースに置き換えるのではなく、「カタカナ」という文字に置き換える
-        text = text.replace(/[^\u30A0-\u30FF\u0020-\u007E\u3000-\u303F\uFF00-\uFFEF]/g, 'カ');
+    // 漢字やその他の文字が残っているかチェック
+    if (nonKatakanaPattern.test(text)) {
+        // 文字ごとに処理して変換
+        const chars = [...text];
+        let result = '';
+        
+        for (const char of chars) {
+            if (nonKatakanaPattern.test(char)) {
+                // 漢字などの場合は、文字に応じたカタカナに変換
+                // 基本的には「カ」に変換するが、一部の漢字には特定のマッピングを用意
+                const kanjiToKatakana = {
+                    // 基本的な漢字→カタカナのマッピング
+                    '一': 'イチ', '二': 'ニ', '三': 'サン', '四': 'ヨン', '五': 'ゴ',
+                    '六': 'ロク', '七': 'ナナ', '八': 'ハチ', '九': 'キュウ', '十': 'ジュウ',
+                    '百': 'ヒャク', '千': 'セン', '万': 'マン', '円': 'エン', '年': 'ネン',
+                    '月': 'ツキ', '日': 'ヒ', '時': 'ジ', '分': 'フン', '秒': 'ビョウ',
+                    '人': 'ヒト', '名': 'メイ', '前': 'マエ', '後': 'ゴ', '右': 'ミギ',
+                    '左': 'ヒダリ', '上': 'ウエ', '下': 'シタ', '中': 'ナカ', '外': 'ソト',
+                    '大': 'ダイ', '小': 'ショウ', '高': 'タカ', '低': 'テイ', '新': 'シン',
+                    '古': 'フル', '多': 'タ', '少': 'ショウ', '長': 'ナガ', '短': 'タン',
+                    '水': 'ミズ', '火': 'ヒ', '土': 'ツチ', '風': 'カゼ', '空': 'ソラ',
+                    '山': 'ヤマ', '川': 'カワ', '海': 'ウミ', '道': 'ミチ', '駅': 'エキ',
+                    '車': 'クルマ', '店': 'ミセ', '家': 'イエ', '学': 'ガク', '校': 'コウ',
+                    '社': 'シャ', '会': 'カイ', '国': 'クニ', '語': 'ゴ', '文': 'ブン',
+                    '字': 'ジ', '本': 'ホン', '手': 'テ', '足': 'アシ', '目': 'メ',
+                    '耳': 'ミミ', '口': 'クチ', '心': 'ココロ', '思': 'オモ', '考': 'カンガ',
+                    '見': 'ミ', '聞': 'キ', '食': 'ショク', '飲': 'ノ', '寝': 'ネ',
+                    '起': 'オ', '立': 'タ', '座': 'スワ', '歩': 'アル', '走': 'ハシ',
+                    '話': 'ハナ', '笑': 'ワラ', '泣': 'ナ', '怒': 'オコ', '楽': 'タノ',
+                    '好': 'ス', '嫌': 'キラ', '春': 'ハル', '夏': 'ナツ', '秋': 'アキ',
+                    '冬': 'フユ', '朝': 'アサ', '昼': 'ヒル', '夕': 'ユウ', '夜': 'ヨル'
+                };
+                
+                // マッピングにある場合はそれを使用、なければ「カ」を使用
+                result += kanjiToKatakana[char] || 'カ';
+            } else {
+                // カタカナ、英数字、記号はそのまま
+                result += char;
+            }
+        }
+        return result;
     }
     
+    // すでにカタカナや英数字のみの場合はそのまま返す
     return text;
 }
 
