@@ -79,11 +79,12 @@ async function processInput(text) {
 
     isProcessing = true;
     lastInput = text;
+    
+    console.log('入力テキスト:', text);
 
     try {
-        const hasJapanese = isJapaneseText(text);
-        const hasNonJapanese = /[a-zA-Z]/g.test(text) || /[^\u0000-\u007F\u3000-\u303f\u3040-\u309f\u30a0-\u30ff\uff00-\uff9f\u4e00-\u9faf]/g.test(text);
-
+        let resultText = '';
+        
         // 翻訳APIが利用可能な場合は、まず翻訳を行う
         if (useTranslationAPI && apiKey) {
             try {
@@ -91,10 +92,13 @@ async function processInput(text) {
                 // 翻訳実行
                 const translatedText = await translateText(text, 'ja');
                 if (translatedText) {
+                    console.log('翻訳結果:', translatedText);
                     updateStatus('カタカナに変換中...', true);
                     // 翻訳されたテキストをカタカナに変換
-                    const katakanaText = await convertToKatakanaWithAI(translatedText);
-                    outputText.textContent = katakanaText;
+                    resultText = await convertToKatakanaWithAI(translatedText);
+                    // 最終チェック
+                    resultText = finalCheck(resultText);
+                    outputText.textContent = resultText;
                     updateStatus('変換完了', false);
                     isProcessing = false;
                     return;
@@ -102,18 +106,28 @@ async function processInput(text) {
             } catch (translationError) {
                 console.warn('翻訳処理に失敗しました:', translationError);
                 updateStatus('翻訳エラー。直接カタカナ変換を試みます...', true);
+                // エラー時はそのまま次の処理に進む
             }
         }
         
         // 翻訳が使えない場合や失敗した場合は、直接カタカナ変換を試みる
         updateStatus('カタカナに変換中...', true);
-        const katakanaText = await convertToKatakanaWithAI(text);
-        outputText.textContent = katakanaText;
+        resultText = await convertToKatakanaWithAI(text);
+        // 最終チェック
+        resultText = finalCheck(resultText);
+        outputText.textContent = resultText;
         updateStatus('変換完了（翻訳なし）', false);
     } catch (error) {
         console.error('処理エラー:', error);
         updateStatus('変換中にエラーが発生しました。', false);
-        outputText.textContent = 'エラー: ' + error.message;
+        
+        // エラー時でも何らかの結果を表示
+        try {
+            const fallbackText = finalCheck(ensureAllKatakana(text));
+            outputText.textContent = fallbackText;
+        } catch (e) {
+            outputText.textContent = 'エラー: ' + error.message;
+        }
     } finally {
         isProcessing = false;
     }
@@ -157,15 +171,18 @@ async function translateText(text, targetLang) {
 // AIを使用してカタカナに変換する関数
 async function convertToKatakanaWithAI(text) {
     try {
+        // まずデバッグログを出力
+        console.log('変換前テキスト:', text);
+        
         if (!apiKey) {
-            console.warn('APIキーがないため、直接ひらがな→カタカナ変換を使用します');
-            return hiraganaToKatakana(text);
+            console.warn('APIキーがないため、直接カタカナ変換を使用します');
+            // 最終的な漢字対応処理を含む変換関数を使用
+            return ensureAllKatakana(text);
         }
 
         // まず単純なひらがな→カタカナ変換
         let processedText = hiraganaToKatakana(text);
         
-        // APIから読みを取得するため、自然言語処理APIを使用
         try {
             // 日本語自然言語処理APIのエンドポイント
             const url = `https://language.googleapis.com/v1/documents:analyzeSyntax?key=${apiKey}`;
@@ -199,103 +216,109 @@ async function convertToKatakanaWithAI(text) {
 
             // トークンからカタカナ読みを抽出
             let katakanaText = '';
-            let currentPosition = 0;
             
             if (data.tokens && data.tokens.length > 0) {
                 for (const token of data.tokens) {
                     if (token.text && token.text.content) {
-                        // 漢字または非ASCII文字が含まれているかチェック
-                        const containsKanji = /[\u4e00-\u9faf]/g.test(token.text.content);
-                        const containsNonAscii = /[^\x00-\x7F]/g.test(token.text.content);
+                        // いずれかの方法でカタカナに変換
+                        let tokenKatakana = '';
                         
-                        // 英数字だけのチェック
-                        const isAlphaNumeric = /^[a-zA-Z0-9\s.,!?'"()[\]{}:;<>=+\-*/\\|@#$%^&_]+$/.test(token.text.content);
+                        // トークンが漢字を含んでいるか
+                        const hasKanji = /[\u4e00-\u9faf]/.test(token.text.content);
                         
-                        if (containsKanji) {
-                            // 漢字が含まれる場合、優先的にlemmaを使用
-                            if (token.lemma) {
-                                katakanaText += hiraganaToKatakana(token.lemma);
-                            } else {
-                                // lemmaがない場合でも、なるべく読みを取得する試み
-                                // (1) 品詞情報があれば使用
-                                if (token.partOfSpeech && token.partOfSpeech.tag) {
-                                    katakanaText += hiraganaToKatakana(token.text.content);
-                                } else {
-                                    // (2) それでも無理なら、元のテキストをそのまま使用（ひらがなはカタカナになる）
-                                    katakanaText += hiraganaToKatakana(token.text.content);
-                                }
-                            }
-                        } else if (containsNonAscii && !isAlphaNumeric) {
-                            // 漢字以外の非ASCII文字（ひらがな、カタカナ、その他の言語）
-                            if (token.lemma) {
-                                // lemmaがある場合はそれを使用
-                                katakanaText += hiraganaToKatakana(token.lemma);
-                            } else {
-                                // その他の非ASCII文字もカタカナ化を試みる
-                                katakanaText += hiraganaToKatakana(token.text.content);
-                            }
-                        } else {
-                            // ASCII文字（英数字など）はそのまま
-                            katakanaText += token.text.content;
+                        // lemmaを使用（最も信頼性が高い）
+                        if (token.lemma) {
+                            tokenKatakana = hiraganaToKatakana(token.lemma);
+                        } 
+                        // lemmaがなければ元のテキストを変換
+                        else {
+                            tokenKatakana = hiraganaToKatakana(token.text.content);
                         }
                         
-                        currentPosition += token.text.content.length;
+                        // カタカナ化されたトークンを追加
+                        katakanaText += tokenKatakana;
                     }
                 }
                 
-                // 最終チェック - まだ漢字が残っていないか確認
-                if (/[\u4e00-\u9faf]/g.test(katakanaText)) {
-                    // 残っている漢字を強制的にカタカナに変換するバックアップ処理
-                    console.warn('漢字が残っています。追加処理を行います。');
-                    
-                    // 再度ひらがな→カタカナ変換をかける
-                    katakanaText = hiraganaToKatakana(katakanaText);
-                    
-                    // それでも残る漢字を「カ」で代用
-                    katakanaText = katakanaText.replace(/[\u4e00-\u9faf]/g, 'カ');
-                }
+                // 最終処理 - 残った漢字をすべてカタカナにする
+                katakanaText = ensureAllKatakana(katakanaText);
                 
+                console.log('変換結果:', katakanaText);
                 return katakanaText;
             } else {
-                // APIからトークンが返ってこない場合はひらがな→カタカナ変換のみ
-                return hiraganaToKatakana(text);
+                // APIからトークンが返ってこない場合
+                console.warn('APIからトークンが返されませんでした');
+                return ensureAllKatakana(text);
             }
         } catch (apiError) {
             console.error('API処理エラー:', apiError);
             // APIエラー時は別のアプローチを試みる
-            return processFallbackKatakana(text);
+            return ensureAllKatakana(text);
         }
     } catch (error) {
         console.error('AIによるカタカナ変換エラー:', error);
-        // エラー時はフォールバック処理
-        return processFallbackKatakana(text);
+        // エラー時は独自処理
+        return ensureAllKatakana(text);
     }
 }
 
-// フォールバック用のカタカナ変換処理
-function processFallbackKatakana(text) {
-    try {
-        // ひらがな→カタカナ変換
-        let result = hiraganaToKatakana(text);
-        
+// カタカナ以外の文字をすべてカタカナに変換する関数
+function ensureAllKatakana(text) {
+    console.log('ensureAllKatakana処理前:', text);
+    
+    // まずひらがなをカタカナに変換
+    let result = hiraganaToKatakana(text);
+    
+    // 漢字を検出
+    const hasKanji = /[\u4e00-\u9faf]/.test(result);
+    if (hasKanji) {
+        console.log('漢字が検出されました。変換します。');
         // 漢字を「カ」に置換
         result = result.replace(/[\u4e00-\u9faf]/g, 'カ');
-        
-        // それ以外の非ASCII文字も「カ」に置換（ただし一部の記号は除く）
-        result = result.replace(/[^\x00-\x7F\u30A0-\u30FF\s.,!?'"()[\]{}:;<>=+\-*/\\|@#$%^&_]/g, 'カ');
-        
-        return result;
-    } catch (error) {
-        console.error('フォールバック処理エラー:', error);
-        // 最終手段として単純なひらがな→カタカナ変換
-        return hiraganaToKatakana(text);
     }
+    
+    // その他の非ASCII文字を処理
+    const hasNonAscii = /[^\x00-\x7F\u30A0-\u30FF\s.,!?'"()[\]{}:;<>=+\-*/\\|@#$%^&_]/.test(result);
+    if (hasNonAscii) {
+        console.log('その他の非ASCII文字が検出されました。変換します。');
+        // 非ASCII文字を「カ」に置換（ただしカタカナと一部の記号は除く）
+        result = result.replace(/[^\x00-\x7F\u30A0-\u30FF\s.,!?'"()[\]{}:;<>=+\-*/\\|@#$%^&_]/g, 'カ');
+    }
+    
+    console.log('ensureAllKatakana処理後:', result);
+    return result;
+}
+
+// フォールバック用のカタカナ変換処理 (削除予定 - ensureAllKatakanaに統合)
+function processFallbackKatakana(text) {
+    return ensureAllKatakana(text);
 }
 
 // ひらがなをカタカナに変換
 function hiraganaToKatakana(text) {
+    if (!text) return '';
+    
     // ひらがな→カタカナ変換
     return text.replace(/[\u3041-\u3096]/g, match => String.fromCharCode(match.charCodeAt(0) + 0x60));
+}
+
+// 出力前の最終チェック - 結果が本当にカタカナかを検証
+function finalCheck(text) {
+    if (!text) return '';
+    
+    // まずひらがなをカタカナに変換
+    let result = hiraganaToKatakana(text);
+    
+    // 漢字や他の非ASCII文字がまだ残っているか確認
+    const remainingNonKatakana = /[^\x00-\x7F\u30A0-\u30FF\s.,!?'"()[\]{}:;<>=+\-*/\\|@#$%^&_]/g.test(result);
+    
+    if (remainingNonKatakana) {
+        console.warn('最終チェック: 非カタカナ文字が残っています。強制的に変換します。');
+        // 強制的にカタカナ化
+        result = ensureAllKatakana(result);
+    }
+    
+    return result;
 }
 
 // 簡易的な日本語テキスト判定
