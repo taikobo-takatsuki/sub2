@@ -1,4 +1,5 @@
-﻿const IS_DEBUG = true;
+﻿// 設定とグローバル変数
+const IS_DEBUG = true;
 
 // DOM要素
 const inputText = document.getElementById('input-text');
@@ -10,10 +11,10 @@ const convertButton = document.getElementById('convert-btn');
 const clearButton = document.getElementById('clear-btn');
 
 // グローバル変数
-let apiKey;
+let apiKey = '';
 let isProcessing = false;
-let useTranslationAPI = true; // 翻訳APIを使用するフラグをデフォルトでtrueに設定
-let lastInput = ''; // 最後の入力を記録
+let useTranslationAPI = true;
+let lastInput = '';
 
 // DOMロード時の初期化
 document.addEventListener('DOMContentLoaded', async () => {
@@ -85,8 +86,8 @@ async function processInput(text) {
     try {
         let resultText = '';
         
-        // 翻訳APIが利用可能な場合は、まず翻訳を行う
-        if (useTranslationAPI && apiKey) {
+        // 翻訳APIを使用
+        if (useTranslationAPI) {
             try {
                 updateStatus('翻訳中...', true);
                 // 翻訳実行
@@ -143,6 +144,7 @@ async function translateText(text, targetLang) {
     
     try {
         updateStatus('翻訳中...', true);
+        // 正しいGoogle TranslateのAPIエンドポイント
         const url = `https://translation.googleapis.com/language/translate/v2?key=${apiKey}`;
         const response = await fetch(url, {
             method: 'POST',
@@ -184,7 +186,7 @@ async function convertToKatakanaWithAI(text) {
         let processedText = hiraganaToKatakana(text);
         
         try {
-            // 日本語自然言語処理APIのエンドポイント
+            // 正しいGoogle Natural LanguageのAPIエンドポイント
             const url = `https://language.googleapis.com/v1/documents:analyzeSyntax?key=${apiKey}`;
             
             // リクエストの作成
@@ -205,14 +207,11 @@ async function convertToKatakanaWithAI(text) {
             if (!response.ok) {
                 const errorData = await response.json();
                 console.warn('Natural Language API応答エラー:', errorData);
-                throw new Error('構文解析に失敗しました: ' + (errorData.error?.message || '不明なエラー'));
+                throw new Error('構文解析に失敗しました: ' + (errorData.error || '不明なエラー'));
             }
 
             const data = await response.json();
-            
-            if (IS_DEBUG) {
-                console.log('Natural Language API応答:', data);
-            }
+            console.log('Natural Language API応答:', data);
 
             // トークンからカタカナ読みを抽出
             let katakanaText = '';
@@ -262,6 +261,7 @@ async function convertToKatakanaWithAI(text) {
     }
 }
 
+// 以下は元のコードと同じ関数
 // カタカナ以外の文字をすべてカタカナに変換する関数
 function ensureAllKatakana(text) {
     console.log('ensureAllKatakana処理前:', text);
@@ -289,11 +289,6 @@ function ensureAllKatakana(text) {
     return result;
 }
 
-// フォールバック用のカタカナ変換処理 (削除予定 - ensureAllKatakanaに統合)
-function processFallbackKatakana(text) {
-    return ensureAllKatakana(text);
-}
-
 // ひらがなをカタカナに変換
 function hiraganaToKatakana(text) {
     if (!text) return '';
@@ -301,7 +296,6 @@ function hiraganaToKatakana(text) {
     // ひらがな→カタカナ変換
     return text.replace(/[\u3041-\u3096]/g, match => String.fromCharCode(match.charCodeAt(0) + 0x60));
 }
-
 // 出力前の最終チェック - 結果が本当にカタカナかを検証
 function finalCheck(text) {
     if (!text) return '';
