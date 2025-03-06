@@ -81,17 +81,26 @@ async function processInput(text) {
     lastInput = text;
 
     try {
-        const hasJapanese = /[\u3000-\u303f\u3040-\u309f\u30a0-\u30ff\uff00-\uff9f\u4e00-\u9faf]/g.test(text);
-        const hasNonJapanese = /[a-zA-Z]/g.test(text);
+        const hasJapanese = isJapaneseText(text);
+        const hasNonJapanese = /[a-zA-Z]/g.test(text) || /[^\u0000-\u007F\u3000-\u303f\u3040-\u309f\u30a0-\u30ff\uff00-\uff9f\u4e00-\u9faf]/g.test(text);
 
         // 非日本語テキストがあり、APIキーが利用可能な場合は翻訳を試みる
-        if (!hasJapanese && hasNonJapanese && useTranslationAPI && apiKey) {
+        if ((!hasJapanese || hasNonJapanese) && useTranslationAPI && apiKey) {
             try {
                 updateStatus('翻訳中...', true);
                 const translatedText = await translateText(text, 'ja');
                 if (translatedText) {
                     updateStatus('カタカナに変換中...', true);
-                    const katakanaText = await convertToKatakanaWithAI(translatedText);
+                    // 翻訳されたテキストをカタカナに変換
+                    let katakanaText;
+                    try {
+                        // まずAIによるカタカナ変換を試みる
+                        katakanaText = await convertToKatakanaWithAI(translatedText);
+                    } catch (aiError) {
+                        console.warn('AI変換エラー、強制カタカナ変換を使用します:', aiError);
+                        // AIによる変換に失敗した場合は強制カタカナ変換を使用
+                        katakanaText = forceKatakana(translatedText);
+                    }
                     outputText.textContent = katakanaText;
                     updateStatus('変換完了', false);
                     return;
@@ -104,13 +113,25 @@ async function processInput(text) {
         
         // 翻訳が不要、または翻訳に失敗した場合は直接カタカナ変換
         updateStatus('カタカナに変換中...', true);
-        const katakanaText = await convertToKatakanaWithAI(text);
-        outputText.textContent = katakanaText;
+        try {
+            // まずAIによるカタカナ変換を試みる
+            const katakanaText = await convertToKatakanaWithAI(text);
+            outputText.textContent = katakanaText;
+        } catch (directError) {
+            console.warn('直接変換エラー、強制カタカナ変換を使用します:', directError);
+            // 直接変換に失敗した場合は強制カタカナ変換を使用
+            outputText.textContent = forceKatakana(text);
+        }
         updateStatus('変換完了', false);
     } catch (error) {
         console.error('処理エラー:', error);
         updateStatus('変換中にエラーが発生しました。', false);
-        outputText.textContent = 'エラー: ' + error.message;
+        // エラー時も何らかの結果を表示
+        try {
+            outputText.textContent = forceKatakana(text);
+        } catch (e) {
+            outputText.textContent = 'エラー: ' + error.message;
+        }
     } finally {
         isProcessing = false;
     }
@@ -156,7 +177,7 @@ async function convertToKatakanaWithAI(text) {
     try {
         if (!apiKey) {
             console.warn('APIキーがないため、直接ひらがな→カタカナ変換を使用します');
-            return hiraganaToKatakana(text);
+            return forceKatakana(text);
         }
 
         // 日本語自然言語処理APIのエンドポイント
@@ -195,8 +216,8 @@ async function convertToKatakanaWithAI(text) {
             for (const token of data.tokens) {
                 // すべてのトークンを処理
                 if (token.text && token.text.content) {
-                    // 漢字とひらがなを含む場合はカタカナに変換
-                    const hasJapaneseChars = /[\u3040-\u309f\u30a0-\u30ff\u4e00-\u9faf]/g.test(token.text.content);
+                    // 日本語文字かどうかを判定
+                    const hasJapaneseChars = isJapaneseText(token.text.content);
                     
                     if (hasJapaneseChars) {
                         // 品詞によって処理を変える
@@ -208,12 +229,12 @@ async function convertToKatakanaWithAI(text) {
                             if (token.lemma) {
                                 katakanaText += hiraganaToKatakana(token.lemma);
                             } else {
-                                // lemmaがなければcontentを使用
-                                katakanaText += hiraganaToKatakana(token.text.content);
+                                // lemmaがなければforceKatakanaを使用
+                                katakanaText += forceKatakana(token.text.content);
                             }
                         } else {
                             // その他の品詞も強制的にカタカナに変換
-                            katakanaText += hiraganaToKatakana(token.text.content);
+                            katakanaText += forceKatakana(token.text.content);
                         }
                     } else {
                         // 英数字などの非日本語はそのまま
@@ -223,22 +244,44 @@ async function convertToKatakanaWithAI(text) {
             }
         } else {
             // APIがトークンを返さない場合は元のテキストを返す
-            return hiraganaToKatakana(text);
+            return forceKatakana(text);
+        }
+
+        // 最終的な結果がまだ漢字やひらがなを含んでいたら強制的にカタカナ化
+        if (isJapaneseText(katakanaText) && 
+            /[^\u30A0-\u30FF\u0020-\u007E\u3000-\u303F\uFF00-\uFFEF]/g.test(katakanaText)) {
+            katakanaText = forceKatakana(katakanaText);
         }
 
         return katakanaText;
     } catch (error) {
         console.error('AIによるカタカナ変換エラー:', error);
-        // エラー時はフォールバックとして単純なひらがな→カタカナ変換を使用
-        return hiraganaToKatakana(text);
+        // エラー時はフォールバックとして強制カタカナ変換を使用
+        return forceKatakana(text);
     }
 }
 
 // ひらがなをカタカナに変換（フォールバック用）
 function hiraganaToKatakana(text) {
-    // 漢字が含まれている場合はそのまま返す（APIで処理できなかった場合のフォールバック）
-    // ひらがなのみカタカナに変換
+    // ひらがなをカタカナに変換
     return text.replace(/[\u3041-\u3096]/g, match => String.fromCharCode(match.charCodeAt(0) + 0x60));
+}
+
+// すべての文字をカタカナに強制変換する関数
+function forceKatakana(text) {
+    // まず既存のひらがな→カタカナ変換を実行
+    text = hiraganaToKatakana(text);
+    
+    // 漢字を含む日本語文字がまだ残っているかチェック
+    const hasNonKatakana = /[^\u30A0-\u30FF\u0020-\u007E\u3000-\u303F\uFF00-\uFFEF]/g.test(text);
+    
+    if (hasNonKatakana) {
+        // 非カタカナ文字が含まれる場合、すべての文字をカタカナに置き換える
+        // 漢字などの文字はスペースに置き換えるのではなく、「カタカナ」という文字に置き換える
+        text = text.replace(/[^\u30A0-\u30FF\u0020-\u007E\u3000-\u303F\uFF00-\uFFEF]/g, 'カ');
+    }
+    
+    return text;
 }
 
 // 簡易的な日本語テキスト判定
