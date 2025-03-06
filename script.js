@@ -193,18 +193,30 @@ async function convertToKatakanaWithAI(text) {
         let katakanaText = '';
         if (data.tokens && data.tokens.length > 0) {
             for (const token of data.tokens) {
-                // 読みがある場合はそれを使用し、カタカナに変換
+                // すべてのトークンを処理
                 if (token.text && token.text.content) {
-                    if (token.partOfSpeech && 
-                        (token.partOfSpeech.tag === 'NOUN' || 
-                         token.partOfSpeech.tag === 'VERB' || 
-                         token.partOfSpeech.tag === 'ADJ')) {
-                        if (token.lemma) {
-                            katakanaText += hiraganaToKatakana(token.lemma);
+                    // 漢字とひらがなを含む場合はカタカナに変換
+                    const hasJapaneseChars = /[\u3040-\u309f\u30a0-\u30ff\u4e00-\u9faf]/g.test(token.text.content);
+                    
+                    if (hasJapaneseChars) {
+                        // 品詞によって処理を変える
+                        if (token.partOfSpeech && 
+                            (token.partOfSpeech.tag === 'NOUN' || 
+                             token.partOfSpeech.tag === 'VERB' || 
+                             token.partOfSpeech.tag === 'ADJ')) {
+                            // 主要な品詞はlemmaを使用（利用可能な場合）
+                            if (token.lemma) {
+                                katakanaText += hiraganaToKatakana(token.lemma);
+                            } else {
+                                // lemmaがなければcontentを使用
+                                katakanaText += hiraganaToKatakana(token.text.content);
+                            }
                         } else {
-                            katakanaText += token.text.content;
+                            // その他の品詞も強制的にカタカナに変換
+                            katakanaText += hiraganaToKatakana(token.text.content);
                         }
                     } else {
+                        // 英数字などの非日本語はそのまま
                         katakanaText += token.text.content;
                     }
                 }
@@ -224,7 +236,14 @@ async function convertToKatakanaWithAI(text) {
 
 // ひらがなをカタカナに変換（フォールバック用）
 function hiraganaToKatakana(text) {
+    // 漢字が含まれている場合はそのまま返す（APIで処理できなかった場合のフォールバック）
+    // ひらがなのみカタカナに変換
     return text.replace(/[\u3041-\u3096]/g, match => String.fromCharCode(match.charCodeAt(0) + 0x60));
+}
+
+// 簡易的な日本語テキスト判定
+function isJapaneseText(text) {
+    return /[\u3000-\u303f\u3040-\u309f\u30a0-\u30ff\uff00-\uff9f\u4e00-\u9faf]/g.test(text);
 }
 
 // ステータス表示を更新
