@@ -12,7 +12,7 @@ const clearButton = document.getElementById('clear-btn');
 // グローバル変数
 let apiKey;
 let isProcessing = false;
-let useTranslationAPI = true; // 翻訳APIを使用するかどうか
+let useTranslationAPI = true; // 翻訳APIを使用するフラグをデフォルトでtrueに設定
 let lastInput = ''; // 最後の入力を記録
 
 // DOMロード時の初期化
@@ -84,6 +84,7 @@ async function processInput(text) {
         const hasJapanese = /[\u3000-\u303f\u3040-\u309f\u30a0-\u30ff\uff00-\uff9f\u4e00-\u9faf]/g.test(text);
         const hasNonJapanese = /[a-zA-Z]/g.test(text);
 
+        // 非日本語テキストがあり、APIキーが利用可能な場合は翻訳を試みる
         if (!hasJapanese && hasNonJapanese && useTranslationAPI && apiKey) {
             try {
                 updateStatus('翻訳中...', true);
@@ -93,22 +94,19 @@ async function processInput(text) {
                     const katakanaText = await convertToKatakanaWithAI(translatedText);
                     outputText.textContent = katakanaText;
                     updateStatus('変換完了', false);
-                } else {
-                    throw new Error('翻訳に失敗しました。');
+                    return;
                 }
             } catch (translationError) {
-                console.warn('翻訳エラー、直接カタカナ変換を試みます:', translationError);
-                updateStatus('翻訳APIエラー。直接変換します...', true);
-                const katakanaText = await convertToKatakanaWithAI(text);
-                outputText.textContent = katakanaText;
-                updateStatus('変換完了（翻訳なし）', false);
+                console.warn('翻訳処理に失敗しました。直接カタカナ変換を試みます:', translationError);
+                // 翻訳に失敗した場合は、そのまま次の処理に進む（直接カタカナ変換を試みる）
             }
-        } else {
-            updateStatus('カタカナに変換中...', true);
-            const katakanaText = await convertToKatakanaWithAI(text);
-            outputText.textContent = katakanaText;
-            updateStatus('変換完了', false);
         }
+        
+        // 翻訳が不要、または翻訳に失敗した場合は直接カタカナ変換
+        updateStatus('カタカナに変換中...', true);
+        const katakanaText = await convertToKatakanaWithAI(text);
+        outputText.textContent = katakanaText;
+        updateStatus('変換完了', false);
     } catch (error) {
         console.error('処理エラー:', error);
         updateStatus('変換中にエラーが発生しました。', false);
@@ -137,14 +135,18 @@ async function translateText(text, targetLang) {
 
         if (!response.ok) {
             const errorData = await response.json();
+            console.warn('翻訳API応答:', errorData);
             throw new Error('翻訳APIエラー: ' + (errorData.error?.message || '不明なエラー'));
         }
 
         const data = await response.json();
+        if (IS_DEBUG) {
+            console.log('翻訳API応答:', data);
+        }
         return data.data.translations[0].translatedText || null;
     } catch (error) {
         console.error('翻訳エラー:', error);
-        updateStatus('翻訳中にエラーが発生しました。', false);
+        updateStatus('翻訳中にエラーが発生しました。直接変換を試みます。', false);
         throw error;
     }
 }
@@ -177,14 +179,14 @@ async function convertToKatakanaWithAI(text) {
 
         if (!response.ok) {
             const errorData = await response.json();
-            console.error('API応答エラー:', errorData);
+            console.warn('Natural Language API応答エラー:', errorData);
             throw new Error('構文解析に失敗しました: ' + (errorData.error?.message || '不明なエラー'));
         }
 
         const data = await response.json();
         
         if (IS_DEBUG) {
-            console.log('API応答:', data);
+            console.log('Natural Language API応答:', data);
         }
 
         // トークンからカタカナ読みを抽出
